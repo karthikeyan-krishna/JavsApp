@@ -1,5 +1,5 @@
 syntax = "proto2";
-package com.karthik.javsapp.whatsapp.proto;
+package com.maharazhi.javsapp.proto;
 
 message HydratedQuickReplyButton {
   optional string displayText = 1;
