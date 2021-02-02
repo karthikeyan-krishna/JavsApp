@@ -15,11 +15,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class WhatsAppMedia {
-    String number;
-    String caption;
-    Constants.FileType mediaType;
-    String mime;
-    byte[] file;
+    private final String number;
+    private final String caption;
+    private final Constants.FileType mediaType;
+    private final String mime;
+    private final byte[] file;
+    private final    String id;
 
     WhatsAppMedia(byte[] file, String number, String caption, Constants.FileType mediaType, String mime) {
         this.file = file;
@@ -27,6 +28,7 @@ public class WhatsAppMedia {
         this.caption = caption;
         this.mediaType = mediaType;
         this.mime = mime;
+        id = WhatsAppUtil.generateMessageID();
     }
 
     static synchronized void uploadMedia(JSONObject mediaConn, ArrayList<WhatsAppMedia> medias, EncryptionKeyPair keyPair, WhatsApp app) {
@@ -34,7 +36,7 @@ public class WhatsAppMedia {
         medias.clear();
     }
 
-    static void uploadMedia(JSONObject mediaConn, WhatsAppMedia media, EncryptionKeyPair keyPair, WhatsApp app) {
+    static String uploadMedia(JSONObject mediaConn, WhatsAppMedia media, EncryptionKeyPair keyPair, WhatsApp app) {
         JSONArray hosts = mediaConn.getJSONArray("hosts");
         for (int i = 0; i < hosts.length(); i++) {
             try {
@@ -126,21 +128,23 @@ public class WhatsAppMedia {
                             message = ProtoBuf.Message.newBuilder().setStickerMessage(sticker).build();
                             break;
                     }
+                    String id = media.getId();
                     ProtoBuf.WebMessageInfo messageInfo = ProtoBuf.WebMessageInfo.newBuilder().setKey(
                             ProtoBuf.MessageKey.newBuilder().setFromMe(true)
                                     .setRemoteJid(WhatsAppUtil.toId(media.getNumber()))
-                                    .setId(WhatsAppUtil.generateMessageID()).build())
+                                    .setId(id).build())
                             .setMessage(message)
                             .setMessageTimestamp(timestamp)
                             .setStatus(ProtoBuf.WebMessageInfo.WEB_MESSAGE_INFO_STATUS.PENDING).build();
 
                     app.ws.sendBinary(WebSocketRequest.sendMessage(messageInfo, keyPair).getMessageBytes());
-                    break;
+                    return id;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+        return null;
     }
 
     public String getNumber() {
@@ -161,5 +165,9 @@ public class WhatsAppMedia {
 
     public String getMime() {
         return mime;
+    }
+
+    public String getId() {
+        return id;
     }
 }

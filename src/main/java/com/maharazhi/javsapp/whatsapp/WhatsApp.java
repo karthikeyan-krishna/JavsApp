@@ -32,6 +32,7 @@ public class WhatsApp extends WebSocketAdapter {
     private boolean challengeSent = false;
     private User user;
     private JSONObject mediaConn;
+    private long lastPong = 0L;
 
     public void saveAuth(WhatsAppCredentials credentials) {
     }
@@ -210,7 +211,7 @@ public class WhatsApp extends WebSocketAdapter {
                         challengeSent = false;
                         events.login(this, 200);
                         if (keepAlive == null || !keepAlive.running) {
-                            keepAlive = new KeepAlive(this);
+                            keepAlive = new KeepAlive();
                             keepAlive.start();
                         }
                         loggedIn = true;
@@ -254,7 +255,7 @@ public class WhatsApp extends WebSocketAdapter {
                         events.login(this, 200);
                     }
                     if (keepAlive == null || !keepAlive.running) {
-                        keepAlive = new KeepAlive(this);
+                        keepAlive = new KeepAlive();
                         keepAlive.start();
                     }
                     break;
@@ -282,13 +283,15 @@ public class WhatsApp extends WebSocketAdapter {
                     events.props(this, array);
                     break;
                 case "Msg":
-                    events.msg(this, array);
+                    events.msg(this, array.getJSONObject(1));
                     break;
                 case "Presence":
                     events.presence(this, array);
                     break;
                 case "Pong":
-                    if (!array.getBoolean(1)) {
+                    if (array.getBoolean(1)) {
+                        lastPong = System.currentTimeMillis();
+                    } else {
                         reconnect();
                     }
                     break;
@@ -344,28 +347,31 @@ public class WhatsApp extends WebSocketAdapter {
         return user;
     }
 
+    public final void checkPong() {
+        if (System.currentTimeMillis() - lastPong >= 5 * 60 * 1000) {
+            reconnect();
+        }
+    }
+
     /**
      * This will ping for keeping the connection stable
      */
-    final static class KeepAlive extends Thread {
-        private final WhatsApp app;
-
-        KeepAlive(WhatsApp app) {
-            this.app = app;
-        }
-
+    private class KeepAlive extends Thread {
         boolean running = true;
 
         @Override
         public void run() {
             boolean test = false;
             while (running) {
-                app.ping();
+                ping();
                 if (test) {
-                    app.test();
+                    test();
+                }
+                Util.waitMillis(30_000);
+                if (test) {
+                    checkPong();
                 }
                 test = !test;
-                Util.waitMillis(30_000);
             }
         }
 
@@ -403,20 +409,23 @@ public class WhatsApp extends WebSocketAdapter {
      * @param phone Receiver Phone number
      * @param text  Text Message
      */
-    public final void sendText(String phone, String text) {
+    public final String sendText(String phone, String text) {
         phone = WhatsAppUtil.toId(phone);
+        String id = WhatsAppUtil.generateMessageID();
         ProtoBuf.WebMessageInfo message = ProtoBuf.WebMessageInfo.newBuilder()
                 .setMessage(ProtoBuf.Message.newBuilder().setExtendedTextMessage(
                         ProtoBuf.ExtendedTextMessage.newBuilder().setText(text).build()))
                 .setKey(ProtoBuf.MessageKey.newBuilder().setFromMe(true).setRemoteJid(phone)
-                        .setId(WhatsAppUtil.generateMessageID()).build())
+                        .setId(id).build())
                 .setMessageTimestamp(Util.timestamp())
                 .setStatus(ProtoBuf.WebMessageInfo.WEB_MESSAGE_INFO_STATUS.PENDING).build();
         try {
             sendBinary(WebSocketRequest.sendMessage(message, credentials.getEncryptionKeyPair()));
+            return id;
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return null;
     }
 
     synchronized JSONObject getMediaConn() {
@@ -437,14 +446,15 @@ public class WhatsApp extends WebSocketAdapter {
      * @param type    FileType Object
      * @param mime    Mime String
      */
-    public final synchronized void sendMedia(String number, byte[] media, String caption, Constants.FileType type, String mime) {
+    public final synchronized String sendMedia(String number, byte[] media, String caption, Constants.FileType type, String mime) {
         WhatsAppMedia whatsAppMedia = new WhatsAppMedia(media, number, caption, type, mime);
         JSONObject mediaConn = getMediaConn();
         if (mediaConn == null || System.currentTimeMillis() - mediaConn.getLong("time") >= 10000) {
-            this.media.add(whatsAppMedia);
+            addMedia(whatsAppMedia);
             sendText(WebSocketRequest.uploadMediaURL());
+            return whatsAppMedia.getId();
         } else {
-            WhatsAppMedia.uploadMedia(mediaConn, whatsAppMedia, credentials.getEncryptionKeyPair(), this);
+            return WhatsAppMedia.uploadMedia(mediaConn, whatsAppMedia, credentials.getEncryptionKeyPair(), this);
         }
     }
 
@@ -456,12 +466,12 @@ public class WhatsApp extends WebSocketAdapter {
      * @param caption Caption to be sent with the Image
      * @param mime    Mime Type
      */
-    public final void sendImage(String number, byte[] media, String caption, String mime) {
-        sendMedia(number, media, caption, Constants.FileType.image, mime);
+    public final String sendImage(String number, byte[] media, String caption, String mime) {
+        return sendMedia(number, media, caption, Constants.FileType.image, mime);
     }
 
-    public final void sendSticker(String number, byte[] media) {
-        sendMedia(number, media, null, Constants.FileType.sticker, "image/webp");
+    public final String sendSticker(String number, byte[] media) {
+        return sendMedia(number, media, null, Constants.FileType.sticker, "image/webp");
     }
 
     /**
@@ -473,8 +483,8 @@ public class WhatsApp extends WebSocketAdapter {
      * @param caption Caption to be sent with the Image
      * @param mime    Mime Type
      */
-    public final void sendVideo(String number, byte[] media, String caption, String mime) {
-        sendMedia(number, media, caption, Constants.FileType.video, mime);
+    public final String sendVideo(String number, byte[] media, String caption, String mime) {
+        return sendMedia(number, media, caption, Constants.FileType.video, mime);
     }
 
     /**
@@ -493,8 +503,8 @@ public class WhatsApp extends WebSocketAdapter {
      * @param caption Caption
      * @param mime    Mime of the Image
      */
-    public final void sendStoryImage(byte[] media, String caption, String mime) {
-        sendImage("status@broadcast", media, caption, mime);
+    public final String sendStoryImage(byte[] media, String caption, String mime) {
+        return sendImage("status@broadcast", media, caption, mime);
     }
 
     /**
@@ -504,8 +514,8 @@ public class WhatsApp extends WebSocketAdapter {
      * @param caption Caption
      * @param mime    Mime of the Video
      */
-    public final void sendStoryVideo(byte[] media, String caption, String mime) {
-        sendVideo("status@broadcast", media, caption, mime);
+    public final String sendStoryVideo(byte[] media, String caption, String mime) {
+        return sendVideo("status@broadcast", media, caption, mime);
     }
 
     /**
@@ -516,7 +526,7 @@ public class WhatsApp extends WebSocketAdapter {
      * @param title    Title to the Document
      * @param mime     Mime of the Document
      */
-    public final void sendDocument(String number, byte[] document, String title, String mime) {
-        sendMedia(number, document, title, Constants.FileType.document, mime);
+    public final String sendDocument(String number, byte[] document, String title, String mime) {
+        return sendMedia(number, document, title, Constants.FileType.document, mime);
     }
 }

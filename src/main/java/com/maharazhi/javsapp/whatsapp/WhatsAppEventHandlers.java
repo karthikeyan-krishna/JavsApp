@@ -86,7 +86,7 @@ public class WhatsAppEventHandlers {
     public void props(WhatsApp app, JSONArray array) {
     }
 
-    public void msg(WhatsApp app, JSONArray array) {
+    public void msg(WhatsApp app, JSONObject json) {
     }
 
     public void presence(WhatsApp app, JSONArray array) {
