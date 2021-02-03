@@ -302,7 +302,7 @@ public class WhatsApp extends WebSocketAdapter {
     }
 
     public final void reconnect() {
-        new Reconnect(this).start();
+        new Reconnect().start();
     }
 
     final void requestNewServerId() {
@@ -347,12 +347,6 @@ public class WhatsApp extends WebSocketAdapter {
         return user;
     }
 
-    public final void checkPong() {
-        if (System.currentTimeMillis() - lastPong >= 5 * 60 * 1000) {
-            reconnect();
-        }
-    }
-
     /**
      * This will ping for keeping the connection stable
      */
@@ -368,9 +362,6 @@ public class WhatsApp extends WebSocketAdapter {
                     test();
                 }
                 Util.waitMillis(30_000);
-                if (test) {
-                    checkPong();
-                }
                 test = !test;
             }
         }
@@ -385,19 +376,13 @@ public class WhatsApp extends WebSocketAdapter {
     /**
      * This thread is used to reconnect automatically when the phone connection disconnects
      */
-    final static class Reconnect extends Thread {
-        private final WhatsApp app;
-
-        Reconnect(WhatsApp app) {
-            this.app = app;
-        }
-
+    private final class Reconnect extends Thread {
         @Override
         public void run() {
-            app.disconnect();
-            app.loggedIn = false;
-            while (!app.isLoggedIn()) {
-                app.connect();
+            disconnect();
+            loggedIn = false;
+            while (!isLoggedIn()) {
+                connect();
                 Util.waitMillis(5_000);
             }
         }
