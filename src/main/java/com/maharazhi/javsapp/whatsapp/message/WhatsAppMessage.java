@@ -6,55 +6,40 @@ import com.maharazhi.javsapp.proto.ProtoBuf;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.Set;
-
 public class WhatsAppMessage {
     public static Object[] jsonToObject(JSONArray json) {
-
         JSONObject attributes = json.getJSONObject(1);
-        // Attributes key values
-        Set<String> keys = attributes.keySet();
-
-        // Contains node content
-        JSONArray childrenArray = json.getJSONArray(2);
-
+        JSONArray array = json.getJSONArray(2);
         Object[] objects = null;
-
-        if (keys.contains("add")) { // Generic message
-            objects = messageToObject(childrenArray);
-        } else if (!keys.contains("duplicate") && keys.contains("type")) {
-
-            String typeValue = attributes.getString("type");
-
+        if (attributes.has("add")) {
+            objects = messageToObject(array);
+        } else if (!attributes.has("duplicate")) {
+            String typeValue = attributes.optString("type");
             switch (typeValue) {
                 case "message":
-                    // Also generic message but gets called as response of the loadConversation() method
-                    objects = messageToObject(childrenArray);
+                    objects = messageToObject(array);
                     break;
                 case "chat":
-                    objects = chatToObject(childrenArray);
+                    objects = chatToObject(array);
                     break;
                 case "contacts":
-                    objects = contactToObject(childrenArray);
+                    objects = contactToObject(array);
                     break;
                 case "status":
-                    objects = statusToObject(childrenArray);
+                    objects = statusToObject(array);
                     break;
                 case "emoji":
-                    objects = emojiToObject(childrenArray);
+                    objects = emojiToObject(array);
                     break;
             }
         }
         return objects;
     }
 
-    private static Object[] messageToObject(JSONArray childrenArray) {
-        Object[] objects = new Object[childrenArray.length()];
-
-        for (int i = 0; i < childrenArray.length(); i++) {
-            // WebMessageInfo objects are encoded with base64 and need to be decoded
-            String base64Message = childrenArray.getJSONArray(i).getJSONArray(2).getString(0);
-            byte[] byteMessage = CryptoUtil.base64Decode(base64Message);
+    private static Object[] messageToObject(JSONArray array) {
+        Object[] objects = new Object[array.length()];
+        for (int i = 0; i < array.length(); i++) {
+            byte[] byteMessage = CryptoUtil.base64Decode(array.getJSONArray(i).getJSONArray(2).getString(0));
             try {
                 ProtoBuf.WebMessageInfo messageInfo = ProtoBuf.WebMessageInfo.parseFrom(byteMessage);
                 ProtoBuf.Message message = messageInfo.getMessage();
@@ -72,52 +57,59 @@ public class WhatsAppMessage {
         return objects;
     }
 
-    private static Object[] chatToObject(JSONArray childrenArray) {
-        Object[] objects = new Object[childrenArray.length()];
-
-        for (int i = 0; i < childrenArray.length(); i++) {
-            JSONObject chatAttributes = childrenArray.getJSONArray(i).getJSONObject(1);
-            String jid = chatAttributes.getString("jid");
-            String name = chatAttributes.has("name") ? chatAttributes.getString("name") : null;
-            int unreadMessages = chatAttributes.getInt("count");
-            long lastInteraction = chatAttributes.getLong("t");
-            boolean muted = chatAttributes.optBoolean("mute");
-
+    /**
+     * Parsing the array and converting it to WebChat objects
+     *
+     * @param chats JSONArray containing the chats
+     * @return Array of WebChat
+     */
+    private static WebChat[] chatToObject(JSONArray chats) {
+        WebChat[] objects = new WebChat[chats.length()];
+        for (int i = 0; i < chats.length(); i++) {
+            JSONObject chat = chats.getJSONArray(i).getJSONObject(1);
+            String jid = chat.getString("jid");
+            String name = chat.optString("name", null);
+            int unreadMessages = chat.getInt("count");
+            long lastInteraction = chat.getLong("t");
+            boolean muted = chat.optBoolean("mute");
             objects[i] = new WebChat(jid, name, unreadMessages, lastInteraction, muted);
         }
         return objects;
     }
 
-    // Convert json message of the type "contacts" > WebChat
-    private static Object[] contactToObject(JSONArray childrenArray) {
-        Object[] objects = new Object[childrenArray.length()];
-
-        for (int i = 0; i < childrenArray.length(); i++) {
-            JSONObject chatAttributes = childrenArray.getJSONArray(i).getJSONObject(1);
-            String jid = chatAttributes.getString("jid");
-            String name = chatAttributes.has("name") ? chatAttributes.getString("name")
-                    : chatAttributes.has("notify") ? chatAttributes.getString("notify") : null;
-
-            objects[i] = new WebContact(jid, name);
+    /**
+     * Parsing the array and converting it to WebContact objects
+     *
+     * @param contacts JSONArray containing the contacts
+     * @return Array of WebContact
+     */
+    private static WebContact[] contactToObject(JSONArray contacts) {
+        WebContact[] objects = new WebContact[contacts.length()];
+        for (int i = 0; i < contacts.length(); i++) {
+            JSONObject contact = contacts.getJSONArray(i).getJSONObject(1);
+            objects[i] = new WebContact(contact.getString("jid"), contact.optString("name", null),
+                    contact.optString("notify", null));
         }
         return objects;
     }
 
-    // Convert json message of the type "status" > WebStatus
-    private static Object[] statusToObject(JSONArray childrenArray) {
-        JSONArray messageArray = childrenArray.getJSONArray(0).getJSONArray(2);
-        Object[] objects = new Object[messageArray.length()];
-
-        for (int i = 0; i < messageArray.length(); i++) {
-            String base64Message = messageArray.getJSONArray(i).getJSONArray(2).getString(0);
+    /**
+     * Parsing the array and converting it to WebStatus objects
+     *
+     * @param status JSONArray containing the contacts
+     * @return Array of WebStatus
+     */
+    private static WebStatus[] statusToObject(JSONArray status) {
+        JSONArray statuses = status.getJSONArray(0).getJSONArray(2);
+        WebStatus[] objects = new WebStatus[statuses.length()];
+        for (int i = 0; i < statuses.length(); i++) {
             try {
-                ProtoBuf.WebMessageInfo messageInfo = ProtoBuf.WebMessageInfo.parseFrom(CryptoUtil.base64Decode(base64Message));
+                ProtoBuf.WebMessageInfo messageInfo = ProtoBuf.WebMessageInfo.parseFrom(CryptoUtil.base64Decode(
+                        statuses.getJSONArray(i).getJSONArray(2).getString(0)));
                 ProtoBuf.Message message = messageInfo.getMessage();
                 if (message.hasImageMessage()) {
-                    // WebMessageInfo to WebImageMessage object
                     objects[i] = new WebStatus(new WebImageMessage(messageInfo));
                 } else if (message.hasVideoMessage()) {
-                    // WebMessageInfo to WebVideoMessage object
                     objects[i] = new WebStatus(new WebVideoMessage(messageInfo));
                 }
             } catch (InvalidProtocolBufferException e) {
@@ -127,14 +119,18 @@ public class WhatsAppMessage {
         return objects;
     }
 
-    // Convert json message of the type "status" > WebEmoji
-    private static Object[] emojiToObject(JSONArray childrenArray) {
-        Object[] objects = new Object[childrenArray.length()];
-
-        for (int i = 0; i < childrenArray.length(); i++) {
-            JSONObject emojiAttributes = childrenArray.getJSONArray(i).getJSONObject(1);
-            String code = emojiAttributes.getString("code");
-            double value = Double.parseDouble(emojiAttributes.getString("value"));
+    /**
+     * Parsing the array and converting it to WebEmoji objects
+     *
+     * @param emojis JSONArray containing the contacts
+     * @return Array of WebEmoji
+     */
+    private static WebEmoji[] emojiToObject(JSONArray emojis) {
+        WebEmoji[] objects = new WebEmoji[emojis.length()];
+        for (int i = 0; i < emojis.length(); i++) {
+            JSONObject emoji = emojis.getJSONArray(i).getJSONObject(1);
+            String code = emoji.getString("code");
+            double value = emoji.optDouble("value");
             objects[i] = new WebEmoji(code, value);
         }
         return objects;

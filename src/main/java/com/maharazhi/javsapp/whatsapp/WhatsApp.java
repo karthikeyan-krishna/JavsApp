@@ -19,7 +19,6 @@ import java.util.Arrays;
  * saveAuth() and loadAuth() methods have to be implemented for storing and retrieving WhatsApp Credentials
  */
 public class WhatsApp extends WebSocketAdapter {
-    static String binaryMessageTag = "";
     static long reqCount = 0;
     private boolean loggedIn;
     public WhatsAppCredentials credentials;
@@ -211,6 +210,7 @@ public class WhatsApp extends WebSocketAdapter {
                         challengeSent = false;
                         events.login(this, 200);
                         if (keepAlive == null || !keepAlive.running) {
+                            post();
                             keepAlive = new KeepAlive();
                             keepAlive.start();
                         }
@@ -223,7 +223,6 @@ public class WhatsApp extends WebSocketAdapter {
                     break;
                 case "401":
                     events.unpaired(this);
-                    System.err.println("Unpaired from the phone");
                     break;
                 case "403":
                     events.accessDenied(this, json.optString("tos"));
@@ -255,6 +254,7 @@ public class WhatsApp extends WebSocketAdapter {
                         events.login(this, 200);
                     }
                     if (keepAlive == null || !keepAlive.running) {
+                        post();
                         keepAlive = new KeepAlive();
                         keepAlive.start();
                     }
@@ -347,6 +347,21 @@ public class WhatsApp extends WebSocketAdapter {
         return user;
     }
 
+    private void post() {
+        sendBinary(WebSocketRequest.contacts(credentials.getEncryptionKeyPair(), "1"));
+        sendBinary(WebSocketRequest.chats(credentials.getEncryptionKeyPair(), "1"));
+        sendBinary(WebSocketRequest.status(credentials.getEncryptionKeyPair(), "1"));
+        sendBinary(WebSocketRequest.label(credentials.getEncryptionKeyPair(), "1"));
+        sendBinary(WebSocketRequest.emoji(credentials.getEncryptionKeyPair(), "1"));
+        sendBinary(WebSocketRequest.presence(credentials.getEncryptionKeyPair(), "1"));
+    }
+
+    public final void checkPong() {
+        if (System.currentTimeMillis() - lastPong >= 5 * 60 * 1000) {
+            disconnect();
+        }
+    }
+
     /**
      * This will ping for keeping the connection stable
      */
@@ -362,13 +377,15 @@ public class WhatsApp extends WebSocketAdapter {
                     test();
                 }
                 Util.waitMillis(30_000);
+                if (test) {
+                    checkPong();
+                }
                 test = !test;
             }
         }
 
         public void kill() {
             System.err.println("Killing WhatsApp");
-            Thread.dumpStack();
             running = false;
         }
     }
@@ -379,11 +396,12 @@ public class WhatsApp extends WebSocketAdapter {
     private final class Reconnect extends Thread {
         @Override
         public void run() {
-            disconnect();
             loggedIn = false;
+            disconnect();
+            Util.waitMillis(10_000);
             while (!isLoggedIn()) {
                 connect();
-                Util.waitMillis(5_000);
+                Util.waitMillis(10_000);
             }
         }
     }
@@ -513,5 +531,13 @@ public class WhatsApp extends WebSocketAdapter {
      */
     public final String sendDocument(String number, byte[] document, String title, String mime) {
         return sendMedia(number, document, title, Constants.FileType.document, mime);
+    }
+
+    public void loadConversation(String jId, int count) {
+        sendBinary(WebSocketRequest.loadConversation(jId, count, credentials.getEncryptionKeyPair()));
+    }
+
+    public void loadConversation(String jId, int count, String id, boolean owner) {
+        sendBinary(WebSocketRequest.loadConversation(jId, count, id, owner, credentials.getEncryptionKeyPair()));
     }
 }

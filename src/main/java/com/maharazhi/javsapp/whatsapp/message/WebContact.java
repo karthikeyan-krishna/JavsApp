@@ -4,10 +4,12 @@ public class WebContact {
 
     private final String jid;
     private final String name;
+    private final String notify;
 
-    public WebContact(String jid, String name) {
+    public WebContact(String jid, String name, String notify) {
         this.jid = jid;
         this.name = name;
+        this.notify = notify;
     }
 
     public String getJid() {
@@ -16,5 +18,9 @@ public class WebContact {
 
     public String getName() {
         return name;
+    }
+
+    public String getNotify() {
+        return notify;
     }
 }

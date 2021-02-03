@@ -5,9 +5,7 @@ import com.maharazhi.javsapp.proto.ProtoBuf;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Binary Encoder
@@ -33,29 +31,32 @@ public class BinaryEncoder {
             if (node.length() != 3) {
                 System.err.println("Invalid node: " + node);
             } else {
-                Object children = node.get(2);
-                Object obj = node.get(1);
-                JSONObject jsonAttributes = null;
-                Set<String> validAttributes = null;
-                int jsonAttributesNum = 0;
-                if (obj != JSONObject.NULL) {
-                    jsonAttributes = node.getJSONObject(1);
-                    validAttributes = jsonAttributes.keySet();
-                    jsonAttributesNum = jsonAttributes.length();
-                }
-                writeListStart(2 * jsonAttributesNum + 1 + (children != null ? 1 : 0));
+                Set<String> validAttributes = getValidKeys(node.optJSONObject(1));
+
+                writeListStart(2 * validAttributes.size() + 1 + (node.get(2) != JSONObject.NULL ? 1 : 0));
                 writeString(node.getString(0), false);
-                obj = node.opt(1);
-                if (obj != JSONObject.NULL && validAttributes != null) {
-                    writeAttributes(jsonAttributes, validAttributes);
-                }
-                writeChildren(children);
+                writeAttributes(node.optJSONObject(1), validAttributes);
+                writeChildren(node.get(2));
             }
         }
     }
 
+    private Set<String> getValidKeys(JSONObject json) {
+        HashSet<String> set = new HashSet<>();
+        if (json == null) return set;
+        Iterator<String> keys = json.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object o = json.get(key);
+            if (o != null && o != JSONObject.NULL) {
+                set.add(key);
+            }
+        }
+        return set;
+    }
+
     private void writeChildren(Object children) {
-        if (children == null) {
+        if (children == null || children == JSONObject.NULL) {
             return;
         }
         if (children instanceof String) {
@@ -63,7 +64,7 @@ public class BinaryEncoder {
         } else if (children instanceof JSONArray) {
             writeListStart(((JSONArray) children).length());
             for (Object element : (JSONArray) children) {
-                if (element != null) {
+                if (element != JSONObject.NULL) {
                     writeNode((JSONArray) element);
                 }
             }
@@ -94,9 +95,9 @@ public class BinaryEncoder {
     }
 
     private void writeByteLength(int length) {
-        if (length >= (1 << 20)) {
+        if (length >= 1 << 20) {
             pushByte(Constants.TAGS.BINARY_32);
-            pushInt(length, 4, false);
+            pushInt(length);
         } else if (length >= 256) {
             pushByte(Constants.TAGS.BINARY_20);
             pushInt20(length);
@@ -132,27 +133,26 @@ public class BinaryEncoder {
     }
 
     private void writeString(String token, boolean i) {
-        if (token != null && token.equals("c.us")) {
+        if ("c.us".equals(token)) {
             token = "s.whatsapp.net";
         }
 
-        int tokenIndex = 0;
-        for (int t = 0; t < Constants.SINGLE_BYTE_TOKENS.length; t++) {
-            if (Constants.SINGLE_BYTE_TOKENS[t] == null && token == null) {
-                tokenIndex = t;
-                break;
-            } else if (Constants.SINGLE_BYTE_TOKENS[t] != null) {
-                if (Constants.SINGLE_BYTE_TOKENS[t].equals(token)) {
-                    tokenIndex = t;
-                    break;
-                }
-            }
-        }
+        int tokenIndex = Arrays.asList(Constants.SINGLE_BYTE_TOKENS).indexOf(token);
+        if (!i && "s.whatsapp.net".equals(token)) {
+            writeToken(tokenIndex);
+        } else if (tokenIndex >= 0) {
 
-        if (!i && token != null && token.equals("s.whatsapp.net")) {
-            writeToken(tokenIndex);
-        } else if (tokenIndex > 0) {
-            writeToken(tokenIndex);
+            if (tokenIndex < Constants.TAGS.SINGLE_BYTE_MAX) {
+                writeToken(tokenIndex);
+            } else {
+                int overflow = tokenIndex - Constants.TAGS.SINGLE_BYTE_MAX;
+                int dictionaryIndex = overflow >> 8;
+                if (dictionaryIndex > 3) {
+                    throw new Error("double byte dict token out of range: " + token + ", " + tokenIndex);
+                }
+                writeToken(Constants.TAGS.DICTIONARY_0 + dictionaryIndex);
+                writeToken(overflow % 256);
+            }
         } else if (token != null) {
             int jidSepIndex = token.indexOf('@');
             if (jidSepIndex <= 0) {
@@ -177,7 +177,7 @@ public class BinaryEncoder {
 
     private void pushBytes(int[] intArray) {
         for (int i : intArray) {
-            data.add((byte) i);
+            data.add((byte) (i));
         }
     }
 
@@ -190,10 +190,9 @@ public class BinaryEncoder {
         pushBytes(intArray);
     }
 
-    private void pushInt(int value, int n, boolean littleEndian) {
-        for (int i = 0; i < n; n++) {
-            int curShift = littleEndian ? i : n - 1 - i;
-            data.add((byte) ((value >> (curShift * 8)) & 0xff));
+    private void pushInt(int value) {
+        for (int i = 0; i < 4; i++) {
+            data.add((byte) ((value >> ((4 - 1 - i) * 8)) & 0xff));
         }
     }
 

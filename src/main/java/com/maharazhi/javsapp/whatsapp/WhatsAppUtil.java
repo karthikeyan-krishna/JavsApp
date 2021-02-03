@@ -4,8 +4,6 @@ import com.maharazhi.javsapp.common.Util;
 import com.maharazhi.javsapp.crypto.CryptoUtil;
 import org.apache.commons.codec.binary.Hex;
 
-import java.util.Random;
-
 /**
  * Methods supporting the WhatsApp transactions
  */
@@ -16,13 +14,6 @@ public interface WhatsAppUtil {
 
     static String getMessageTag() {
         return Util.timestamp() + ".--" + WhatsApp.reqCount++;
-    }
-
-    static String getBinaryMessageTag() {
-        if (WhatsApp.binaryMessageTag.equals("")) {
-            WhatsApp.binaryMessageTag = String.valueOf((new Random().nextInt(900) + 100));
-        }
-        return WhatsApp.binaryMessageTag + ".--" + WhatsApp.reqCount++;
     }
 
     static String toId(String phone) {

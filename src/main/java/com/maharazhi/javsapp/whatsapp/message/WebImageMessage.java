@@ -15,13 +15,12 @@ public class WebImageMessage extends WebMessage {
     private final long fileLength;
     private final int width;
     private final int height;
+    private byte[] jpegFullResolution;
 
 
     public WebImageMessage(ProtoBuf.WebMessageInfo message) {
         super(message);
-
         ProtoBuf.ImageMessage imageMessage = message.getMessage().getImageMessage();
-
         url = imageMessage.getUrl();
         mimetype = imageMessage.getMimetype();
         fileSha256 = imageMessage.getFileSha256().toByteArray();
@@ -58,7 +57,10 @@ public class WebImageMessage extends WebMessage {
     }
 
     public byte[] getJpegFullResolution() {
-        return MediaCrypto.decrypt(mediaKey, url, Constants.FileType.image.getHkdfKey());
+        if (jpegFullResolution == null) {
+            jpegFullResolution = MediaCrypto.decrypt(mediaKey, url, Constants.FileType.image.getHkdfKey());
+        }
+        return jpegFullResolution;
     }
 
     public long getFileLength() {

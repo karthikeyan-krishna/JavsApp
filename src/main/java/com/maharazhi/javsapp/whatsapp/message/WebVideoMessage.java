@@ -13,13 +13,12 @@ public class WebVideoMessage extends WebMessage {
     private final ProtoBuf.VideoMessage.VIDEO_MESSAGE_ATTRIBUTION gifAttribution;
     private final boolean gifPlayback;
     private final String caption;
+    private byte[] mp4FullResolution;
 
 
     public WebVideoMessage(ProtoBuf.WebMessageInfo message) {
         super(message);
-
         ProtoBuf.VideoMessage videoMessage = message.getMessage().getVideoMessage();
-
         url = videoMessage.getUrl();
         mimetype = videoMessage.getMimetype();
         fileSha256 = videoMessage.getFileSha256().toByteArray();
@@ -65,7 +64,10 @@ public class WebVideoMessage extends WebMessage {
     }
 
     public byte[] getMp4FullResolution() {
-        return MediaCrypto.decrypt(mediaKey, url, Constants.FileType.video.getHkdfKey());
+        if (mp4FullResolution == null) {
+            mp4FullResolution = MediaCrypto.decrypt(mediaKey, url, Constants.FileType.video.getHkdfKey());
+        }
+        return mp4FullResolution;
     }
 
     public long getFileLength() {

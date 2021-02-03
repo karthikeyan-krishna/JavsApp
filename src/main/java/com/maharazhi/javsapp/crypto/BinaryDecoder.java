@@ -55,11 +55,11 @@ public class BinaryDecoder {
         return 0;
     }
 
-    private int readInt(int n, boolean littleEndian) {
+    private int readInt(int n) {
         checkEOS(n);
         int val = 0;
         for (int i = 0; i < n; i++) {
-            int shift = littleEndian ? i : n - 1 - i;
+            int shift = n - 1 - i;
             val |= next() << (shift * 8);
         }
         return val;
@@ -105,8 +105,7 @@ public class BinaryDecoder {
     }
 
     private boolean isListTag(int tag) {
-        return tag == Constants.TAGS.LIST_EMPTY || tag == Constants.TAGS.LIST_8
-                || tag == Constants.TAGS.LIST_16;
+        return tag == Constants.TAGS.LIST_EMPTY || tag == Constants.TAGS.LIST_8 || tag == Constants.TAGS.LIST_16;
     }
 
     private int readListSize(int tag) {
@@ -116,7 +115,7 @@ public class BinaryDecoder {
             case Constants.TAGS.LIST_8:
                 return readByte();
             case Constants.TAGS.LIST_16:
-                return readInt(2, false);
+                return readInt(2);
         }
 
         System.err.println("Invalid tag for list size: " + tag);
@@ -125,10 +124,8 @@ public class BinaryDecoder {
 
     private String readStringFromCharacters(int length) {
         checkEOS(length);
-
         byte[] value = Arrays.copyOfRange(buffer, index, index + length);
         index += length;
-
         return new String(value);
     }
 
@@ -141,17 +138,14 @@ public class BinaryDecoder {
 
     private String getDoubleToken(int a, int b) {
         int n = a * 256 + b;
-
         if (n < 0 || n > Constants.DOUBLE_BYTE_TOKENS.length) {
             System.err.println("Invalid token index: " + index);
         }
-
         try {
             return Constants.DOUBLE_BYTE_TOKENS[n];
         } catch (ArrayIndexOutOfBoundsException ex) {
             ex.printStackTrace();
         }
-
         return null;
     }
 
@@ -160,7 +154,6 @@ public class BinaryDecoder {
             String token = getToken(tag);
             return token.equals("s.whatsapp.net") ? "c.us" : token;
         }
-
         switch (tag) {
             case Constants.TAGS.DICTIONARY_0:
             case Constants.TAGS.DICTIONARY_1:
@@ -174,11 +167,10 @@ public class BinaryDecoder {
             case Constants.TAGS.BINARY_20:
                 return readStringFromCharacters(readInt20());
             case Constants.TAGS.BINARY_32:
-                return readStringFromCharacters(readInt(4, false));
+                return readStringFromCharacters(readInt(4));
             case Constants.TAGS.JID_PAIR:
                 String i = readString(readByte() & 0xff);
                 String j = readString(readByte() & 0xff);
-
                 if (i != null && j != null) {
                     return i + "@" + j;
                 }
@@ -195,11 +187,9 @@ public class BinaryDecoder {
     private JSONObject readAttributes(int n) {
         if (n != 0) {
             JSONObject attributeMap = new JSONObject();
-
             for (int i = 0; i < n; i++) {
                 String key = readString(readByte() & 0xff);
                 String value = readString(readByte() & 0xff);
-
                 attributeMap.put(key, value);
             }
             return attributeMap;
@@ -208,24 +198,19 @@ public class BinaryDecoder {
     }
 
     private JSONArray readNode() {
-        int listSize = readListSize(readByte() & 0xff); // Needs to cast to unsigned byte or int
-        int descrTag = readByte() & 0xff;
-
-        if (descrTag == Constants.TAGS.STREAM_END) {
+        int listSize = readListSize(readByte() & 0xff);
+        int descriptionTag = readByte() & 0xff;
+        if (descriptionTag == Constants.TAGS.STREAM_END) {
             System.err.println("Unexpected stream end");
         }
-
-        String descr = readString(descrTag);
-        if (listSize == 0 || descr == null) {
+        String description = readString(descriptionTag);
+        if (listSize == 0 || description == null) {
             System.err.println("Invalid node");
         }
-
         JSONObject attrs = readAttributes((listSize - 1) >> 1);
-
         JSONArray contentArray = new JSONArray();
         if (listSize % 2 == 0) {
-            int tag = readByte() & 0xff; // Needs to cast to unsigned byte or int
-
+            int tag = readByte() & 0xff;
             if (isListTag(tag)) {
                 contentArray = readList(tag);
             } else {
@@ -246,7 +231,7 @@ public class BinaryDecoder {
                             break;
                         // ?
                         case Constants.TAGS.BINARY_32:
-                            byte[] bin32 = readBytes(readInt(4, false));
+                            byte[] bin32 = readBytes(readInt(4));
                             base64Decoded = CryptoUtil.base64EncodeToString(
                                     ProtoBuf.WebMessageInfo.parseFrom(bin32).toByteArray());
                             break;
@@ -260,7 +245,7 @@ public class BinaryDecoder {
                 }
             }
         }
-        return new JSONArray().put(descr).put(attrs).put(contentArray);
+        return new JSONArray().put(description).put(attrs).put(contentArray);
     }
 
     private JSONArray readList(int tag) {
