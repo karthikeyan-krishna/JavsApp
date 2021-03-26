@@ -11,7 +11,7 @@ can be built and can be used in Business Promotions, Newsletters, Notifications,
 
 The inspiration behind this project is
 [Sigalor's whatsapp-web-reveng](https://github.com/sigalor/whatsapp-web-reveng)
-and [adiwajshing's Baileys](https://github.com/karthikeyan-krishna/Baileys)
+and [adiwajshing's Baileys](https://github.com/adiwajshing/Baileys)
 
 ### Version and dependencies
 
