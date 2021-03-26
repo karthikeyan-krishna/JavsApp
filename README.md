@@ -1,4 +1,4 @@
-# Maharazhi - JavsApp
+# JavsApp
 
 ## WhatsApp Web Reverse Engineering in Java
 
@@ -24,8 +24,8 @@ included. All the other dependencies are as in [pom.xml](pom.xml)
 - [x] Send Images
 - [x] Send Videos
 - [ ] Send Documents
-- [ ] Send Stickers
-- [ ] Group and broadcast support
+- [x] Send Stickers
+- [x] Group and broadcast support
 
 # TODO
 
@@ -33,8 +33,6 @@ included. All the other dependencies are as in [pom.xml](pom.xml)
 - [x] Maintain the disconnected state
 - [ ] Get proper response when connection is not proper
 - [ ] Maintain the current status of the socket
-- [x] Once connected, never disconnect
-- [ ] More Event Handlers
 - [ ] When a new message is received, the sender's number is alone available. Name has to be fetched from the contacts
 - [ ] Build a framework to make transactions synchronized
 - [ ] Make the timeout settings configurable by providing more interfaces
