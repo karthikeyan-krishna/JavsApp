@@ -6,6 +6,7 @@ public class WebConversationMessage extends WebMessage {
 
     private final String text;
     private QuotedTextMessage quotedTextMessage;
+    private String participant;
 
     public WebConversationMessage(ProtoBuf.WebMessageInfo message) {
         super(message);
@@ -27,6 +28,9 @@ public class WebConversationMessage extends WebMessage {
                 quotedTextMessage = new QuotedTextMessage(stanzaId, participant, quotedMessage);
             }
         }
+        if (message.hasParticipant()) {
+            participant = message.getParticipant();
+        }
     }
 
     public String getText() {
@@ -36,7 +40,6 @@ public class WebConversationMessage extends WebMessage {
     public boolean hasQuotedTextMessage() {
         return quotedTextMessage != null;
     }
-
 
     public QuotedTextMessage getQuotedTextMessage() {
         return quotedTextMessage;
@@ -63,5 +66,25 @@ public class WebConversationMessage extends WebMessage {
         public String getText() {
             return quotedMessage;
         }
+    }
+
+    public boolean isGroup() {
+        return getRemoteJid().endsWith("@g.us");
+    }
+
+    public boolean isPersonal() {
+        return getRemoteJid().endsWith("@s.whatsapp.net");
+    }
+
+    public boolean isStatus() {
+        return getRemoteJid().equals("status@broadcast");
+    }
+
+    public boolean isBroadCast() {
+        return getRemoteJid().endsWith("status@broadcast");
+    }
+
+    public String getParticipant() {
+        return participant;
     }
 }

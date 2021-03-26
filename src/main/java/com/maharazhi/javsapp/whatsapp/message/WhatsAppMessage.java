@@ -8,7 +8,8 @@ import org.json.JSONObject;
 
 public class WhatsAppMessage {
     public static Object[] jsonToObject(JSONArray json) {
-        JSONObject attributes = json.getJSONObject(1);
+        JSONObject attributes = json.optJSONObject(1);
+        if (attributes == null) return null;
         JSONArray array = json.getJSONArray(2);
         Object[] objects = null;
         if (attributes.has("add")) {

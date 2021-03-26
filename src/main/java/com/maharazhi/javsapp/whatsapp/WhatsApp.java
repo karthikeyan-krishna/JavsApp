@@ -108,13 +108,14 @@ public class WhatsApp extends WebSocketAdapter {
      */
     public final void disconnectApp() {
         ws.disconnect();
+        keepAlive.kill();
     }
 
     /**
      * Logout the session and connect with a new session
      */
     public final void disconnect() {
-        disconnectApp();
+        ws.disconnect();
         init();
     }
 

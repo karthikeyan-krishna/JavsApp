@@ -11,7 +11,8 @@ can be built and can be used in Business Promotions, Newsletters, Notifications,
 
 The inspiration behind this project is
 [Sigalor's whatsapp-web-reveng](https://github.com/sigalor/whatsapp-web-reveng)
-and [adiwajshing's Baileys](https://github.com/adiwajshing/Baileys)
+, [adiwajshing's Baileys](https://github.com/adiwajshing/Baileys)
+and [JicuNull's WhatsJava](https://github.com/JicuNull/WhatsJava)
 
 ### Version and dependencies
 
@@ -37,3 +38,21 @@ included. All the other dependencies are as in [pom.xml](pom.xml)
 - [ ] Build a framework to make transactions synchronized
 - [ ] Make the timeout settings configurable by providing more interfaces
 - [ ] A Full Documentation
+
+# Sample Code
+
+```java
+WhatsApp app=new WhatsApp("Whatsapp",new WhatsAppEventHandlers() {
+    @Override public void qr(WhatsApp app,String message) {
+        System.out.println("https://api.qrserver.com/v1/create-qr-code/?size=450x450&data="+Encode.forUriComponent(message));
+    }
+});
+```
+
+Open the URL and Scan the QR from WhatsApp Mobile App After Connecting,
+
+```java
+app.sendText(phone, text); //Send Text Message
+app.sendImage(String number, byte[] media, String caption, String mime); //Send Image  
+app.sendSticker(String number, byte[] media); // Send Sticker  
+```
