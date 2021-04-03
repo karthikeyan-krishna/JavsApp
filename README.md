@@ -55,4 +55,5 @@ Open the URL and Scan the QR from WhatsApp Mobile App After Connecting,
 app.sendText(phone, text); //Send Text Message
 app.sendImage(String number, byte[] media, String caption, String mime); //Send Image  
 app.sendSticker(String number, byte[] media); // Send Sticker  
+app.sendDocument(String number, byte[] media, String title, String mime); //Send document
 ```
